@@ -1,7 +1,12 @@
 from fastapi import FastAPI, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
+
 from models.authModels import UserRole, RegisterUsers, LoginUsers
 from schemas.userSchema import User
+
+from models.eventModels import CreateEvent
+from schemas.eventSchema import Event
+
 from db.db import Base, engine, get_db
 import uuid
 import bcrypt
@@ -17,7 +22,6 @@ from core.security.security import (
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 
 
 app = FastAPI()
@@ -71,6 +75,7 @@ async def user_register(
         refresh_token
     )
 
+    #Adding hashed refresh token to table
     new_user.hashedRefreshToken = hashed_refresh_token
 
     #Not await because adding the object to SQLAlchemy's session doesn't itself send the SQL to PostgreSQL
@@ -145,25 +150,49 @@ async def user_login(
 
 #'/refresh  --- Pending [An endpoint to make refresh the accesstoken if expired]'
 
+
+
 @app.post("/create-event")
-async def create_event(authorization: str = Header()):
-    scheme, token = authorization.split(" ")
-    return {"Scheme": scheme, "Token": token}
+async def create_event(
+    event:CreateEvent,
+    db:AsyncSession = Depends(get_db),
+    authorization: str = Header()
+    ):
 
     #{inside a function
 
     #Get a token from the req header BEARER {token}
+    scheme, token = authorization.split(" ")
     
     #Verify the token
+    verified_token = verify_access_token(token=token)
 
-    #Get user_id and verify a email
+
+    #Get user_id and verify email
+    user_id = verified_token["sub"]
+
+    result = await db.execute(
+        select(User).where(User.user_id == user_id)
+    )
+
+    user = result.scalar_one_or_none()
+
+    if not user.email:
+        raise HTTPException(
+            status_code=404,
+            detail="User doesn't exist"
+        )
+    
 
     #Get a role of the user if role is Organizer give allow to create a event
+    role = user.role
+    if role != UserRole.ORGANIZER:
+        raise HTTPException(
+            status_code=403,
+            detail="You are not allowed to create-event"
+        )
 
-    # return boolean is_allowed? true | false and user_id}
-
-    #if true
-
+    
     #Create a uuuid for event id
 
     #Create title, description, venue, starttime, endtime, capacity, price
@@ -176,12 +205,35 @@ async def create_event(authorization: str = Header()):
 
     #created_at and updated_at
 
-    #"""
-    #add(new_user)
-    #await commit()
-    #await refresh(new_user)
-    #"""
+    new_event = Event(
+        event_id=uuid.uuid4(),
+        title=event.title,
+        description=event.description,
+        venue=event.venue,
+        start_time=event.start_time,
+        end_time=event.end_time,
+        capacity=event.capacity,
+        price=event.price,
+        organizer_id=user_id,
+        status=event.status
+    )
 
+    db.add(new_event)
+    await db.commit()
+    await db.refresh(new_event)
+
+    return{
+        "event":{
+            "title":new_event.title,
+            "description": new_event.description,
+            "venue": new_event.venue,
+            "start_time":new_event.start_time,
+            "end_time":new_event.end_time,
+            "capacity": new_event.capacity,
+            "price": new_event.price,
+            "status":new_event.status
+        }
+    }
 
 
 

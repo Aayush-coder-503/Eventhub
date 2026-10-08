@@ -8,6 +8,7 @@ from alembic import context
 from db.db import Base
 from schemas.userSchema import User
 from schemas.categorySchema import Category
+from schemas.eventSchema import Event
 
 import os
 from dotenv import load_dotenv
