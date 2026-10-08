@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from datetime import datetime
 from enum import Enum
+import uuid
 
 
 class Status(str, Enum):
@@ -17,5 +18,6 @@ class CreateEvent(BaseModel):
     capacity: int
     price: float
     status: Status
+    category_id: uuid.UUID
 
 
