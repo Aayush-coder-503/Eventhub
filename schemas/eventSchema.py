@@ -2,7 +2,7 @@ from db.db import Base
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
-from sqlalchemy import ForeignKey, String, DateTime, Enum as SQLEnum, Integer, Numeric
+from sqlalchemy import ForeignKey, String, DateTime, Enum as SQLEnum, Integer, Numeric, Boolean
 from datetime import datetime
 from enum import Enum
 from models.eventModels import Status
@@ -66,6 +66,12 @@ class Event(Base):
 
     status: Mapped[Status] = mapped_column(
         SQLEnum(Status),
+        nullable=False
+    )
+
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
         nullable=False
     )
 

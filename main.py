@@ -333,8 +333,6 @@ async def edit_event(
 
     # 5. Ensure this organizer owns the event
     if existing_event.organizer_id != str(user.user_id):
-        print("Authenticated user ID:", user.user_id, type(user.user_id))
-        print("Event organizer ID:", existing_event.organizer_id, type(existing_event.organizer_id))
         raise HTTPException(
             status_code=403,
             detail="You can only edit your own events"
@@ -384,4 +382,67 @@ async def edit_event(
             "status": existing_event.status,
             "category_name": str(existing_event.event_id)
         }
+    }
+
+@app.delete('/delete-event/{event_id}')
+async def delete_event(
+    event_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    authorization: str = Header()
+    ):
+    
+    #Verify token
+    scheme, token = authorization.split(" ")
+    verify_token = verify_access_token(token=token)
+    user_id = verify_token['sub']
+
+    #Verify user
+    result = await db.execute(
+        select(User).where(User.user_id == user_id)
+    )
+
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="User doesn't exist"
+        )
+
+    #check if role is organizer
+    if user.role != UserRole.ORGANIZER:
+        raise HTTPException(
+            status_code=403,
+            detail="Only organizers can edit events"
+        )
+    
+    #check if event exist or not
+    result = await db.execute(
+        select(Event).where(Event.event_id == event_id)
+    )
+
+    existing_event = result.scalar_one_or_none()
+
+    if existing_event is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Event doesn't exist"
+        )  
+    
+    #check if the event_orgenizer id is same as user_id reqesting to delete
+    #Ensure this organizer owns the event
+    if existing_event.organizer_id != str(user.user_id):
+        raise HTTPException(
+            status_code=403,
+            detail="You can only edit your own events"
+        )
+
+    #delete the event based on event_id
+    existing_event.is_deleted = True
+
+    await db.commit()
+    await db.refresh(existing_event)
+
+    return {
+        "message": "Deleted event successfully"
     }
