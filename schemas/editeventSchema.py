@@ -19,10 +19,3 @@ class EditEvent(BaseModel):
     price: float | None = None
     status: EditStatus | None = None
     category_id: uuid.UUID | None = None
-
-
-# event = EditEvent(title="hii", description="youu")
-
-# for events in event:
-#     if events('title') != None:
-#         print(events('title'))

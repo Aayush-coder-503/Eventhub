@@ -2,7 +2,7 @@ from db.db import Base
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
-from sqlalchemy import ForeignKey, String, DateTime, Enum as SQLEnum, Integer, Numeric, Boolean
+from sqlalchemy import ForeignKey, String, DateTime, Enum as SQLEnum, Integer, Numeric, Boolean, CheckConstraint
 from datetime import datetime
 from enum import Enum
 from schemas.eventSchema import Status
@@ -10,6 +10,11 @@ from schemas.eventSchema import Status
 
 class Event(Base):
     __tablename__ = "event"
+
+    __table_args__ = (
+        CheckConstraint("capacity > 0", name="check_capacity_positive"),
+        CheckConstraint("price > 0", name="check_price_positive"),
+    )
 
     event_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 from enum import Enum
 import uuid
@@ -15,7 +15,7 @@ class CreateEvent(BaseModel):
     venue: str
     start_time: datetime
     end_time: datetime
-    capacity: int
+    capacity: int = Field(gt=0)
     price: float
     status: Status
     category_id: uuid.UUID
