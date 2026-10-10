@@ -17,8 +17,6 @@ from schemas.bookingSchema import BookingStatus
 
 from core.security.dependencies import get_authenticated_user
 
-
-
 import math
 import uuid
 from datetime import datetime

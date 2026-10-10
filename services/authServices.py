@@ -38,7 +38,7 @@ async def register_user(
         name=user.user_name,
         email=user.email,
         hashed_password=hashed_password,
-        role=user.role,
+        role=UserRole.ATTENDEE,
     )
 
     access_token = create_access_token(new_user.user_id)
