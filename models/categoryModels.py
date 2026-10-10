@@ -1,7 +1,31 @@
+import uuid
+from datetime import datetime
 from enum import Enum
 
-class Categories(str, Enum):
-    TECH = "Tech"
-    PHYSICS = "Physics"
-    MATHEMATICS = "Mathematics"
-    MUSIC = "Music"
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import DateTime, Enum as SQLEnum
+from sqlalchemy.orm import Mapped, mapped_column
+
+from db.db import Base
+from schemas.categorySchema import Categories
+
+class Category(Base):
+    __tablename__ = "category"
+
+    category_id: Mapped[uuid:UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+
+    category_names: Mapped[Categories] = mapped_column(
+        SQLEnum(Categories),
+        nullable=False
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=datetime.utcnow,
+        nullable=False
+    )
+

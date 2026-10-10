@@ -6,9 +6,9 @@ from sqlalchemy import pool
 from alembic import context
 
 from db.db import Base
-from schemas.userSchema import User
-from schemas.categorySchema import Category
-from schemas.eventSchema import Event
+from models.usersModels import User
+from models.categoryModels import Category
+from models.eventModels import Event
 
 import os
 from dotenv import load_dotenv

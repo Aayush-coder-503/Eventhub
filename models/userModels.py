@@ -7,7 +7,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from db.db import Base
-from models.authModels import UserRole
+from schemas.authSchema import UserRole
 
 class User(Base):
     __tablename__ = "users"

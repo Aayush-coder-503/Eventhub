@@ -1,16 +1,16 @@
 from fastapi import FastAPI, Depends, HTTPException, Header, Body
 from sqlalchemy.orm import Session
 
-from models.authModels import UserRole, RegisterUsers, LoginUsers
-from schemas.userSchema import User
+from schemas.authSchema import UserRole, RegisterUsers, LoginUsers
+from models.userModels import User
 
-from models.eventModels import CreateEvent
-from schemas.eventSchema import Event
+from schemas.eventSchema import CreateEvent
+from models.eventModels import Event
 
-from models.editeventModels import EditEvent
+from schemas.editeventSchema import EditEvent
 
-from models.categoryModels import Categories
-from schemas.categorySchema import Category
+from schemas.categorySchema import Categories
+from models.categoryModels import Category
 
 from db.db import Base, engine, get_db
 import uuid
@@ -33,9 +33,25 @@ app = FastAPI()
 
 
 @app.get('/')
-async def root():
-    return {'project': 'EventHub'}
+async def status():
+    return {"message": "server is running"}
+    
 
+@app.get('/events')
+async def events(
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(
+        select(Event).where(Event.is_deleted == False)
+    )
+
+    events = result.scalar_one_or_none()
+
+    return {
+        "event_lists": {
+            events
+        }
+    }
 
 @app.post('/register')
 async def user_register(
@@ -45,11 +61,6 @@ async def user_register(
     result = await db.execute(
         select(User).where(User.email == user.email)
     )
-
-    #result is not the User object.
-    #It's a SQLAlchemy Result object containing the result of the query.
-    #So we need to extract the User from that result:
-    
     user_exist = result.scalar_one_or_none()
 
     if user_exist:
@@ -80,10 +91,9 @@ async def user_register(
         refresh_token
     )
 
-    #Adding hashed refresh token to table
-    new_user.hashedRefreshToken = hashed_refresh_token
+    
+    new_user.hashedRefreshToken = hashed_refresh_token #Adding hashed refresh token to db
 
-    #Not await because adding the object to SQLAlchemy's session doesn't itself send the SQL to PostgreSQL
     db.add(new_user)
 
     await db.commit()
@@ -153,7 +163,6 @@ async def user_login(
     }
 
 
-#'/refresh'  --- Pending [An endpoint to make refresh the accesstoken if expired]'
 
 @app.post("/category")
 async def create_category(
