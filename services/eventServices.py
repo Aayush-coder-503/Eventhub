@@ -18,13 +18,132 @@ from schemas.bookingSchema import BookingStatus
 from core.security.dependencies import get_authenticated_user
 
 
-async def get_events(db: AsyncSession):
-    result = await db.execute(
-        select(Event).where(Event.is_deleted.is_(False))
+
+import math
+import uuid
+from datetime import datetime
+
+from fastapi import HTTPException
+from sqlalchemy import select, func, asc, desc
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from models.eventModels import Event
+
+
+async def get_events(
+    db: AsyncSession,
+    page: int = 1,
+    size: int = 10,
+    category_id: uuid.UUID | None = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    min_price: float | None = None,
+    max_price: float | None = None,
+    search: str | None = None,
+    sort_by: str = "date",
+    order: str = "asc",
+):
+    # Validate ranges
+    if start_date and end_date and start_date > end_date:
+        raise HTTPException(
+            status_code=422,
+            detail="start_date must be before or equal to end_date",
+        )
+
+    if min_price is not None and max_price is not None:
+        if min_price > max_price:
+            raise HTTPException(
+                status_code=422,
+                detail="min_price cannot exceed max_price",
+            )
+
+    # Start with non-deleted events
+    query = select(Event).where(
+        Event.is_deleted.is_(False),
+        Event.status == Status.PUBLISHED,
     )
+
+    # Apply optional filters
+    if category_id is not None:
+        query = query.where(Event.category_id == category_id)
+
+    if start_date is not None:
+        query = query.where(Event.start_time >= start_date)
+
+    if end_date is not None:
+        query = query.where(Event.start_time <= end_date)
+
+    if min_price is not None:
+        query = query.where(Event.price >= min_price)
+
+    if max_price is not None:
+        query = query.where(Event.price <= max_price)
+
+    if search and search.strip():
+        query = query.where(
+            Event.title.ilike(f"%{search.strip()}%")
+        )
+
+    # Count the matching events BEFORE pagination
+    count_query = select(func.count()).select_from(
+        query.order_by(None).subquery()
+    )
+    count_result = await db.execute(count_query)
+    total = count_result.scalar_one()
+
+    # Choose the sorting column
+    sort_columns = {
+        "date": Event.start_time,
+        "price": Event.price,
+    }
+
+    sort_column = sort_columns[sort_by]
+    sort_expression = (
+        asc(sort_column) if order == "asc"
+        else desc(sort_column)
+    )
+
+    # event_id provides consistent ordering when values are equal
+    query = query.order_by(
+        sort_expression,
+        asc(Event.event_id),
+    )
+
+    # Pagination: page 1 skips 0 rows, page 2 skips `size` rows
+    offset = (page - 1) * size
+
+    query = query.offset(offset).limit(size)
+
+    result = await db.execute(query)
     events = result.scalars().all()
 
-    return {"event_lists": events}
+    # Return explicit response data
+    event_list = [
+        {
+            "event_id": str(event.event_id),
+            "title": event.title,
+            "description": event.description,
+            "venue": event.venue,
+            "start_time": event.start_time,
+            "end_time": event.end_time,
+            "capacity": event.capacity,
+            "price": float(event.price),
+            "category_id": str(event.category_id),
+            "organizer_id": str(event.organizer_id),
+            "status": event.status.value,
+            "created_at": event.created_at,
+            "updated_at": event.updated_at,
+        }
+        for event in events
+    ]
+
+    return {
+        "page": page,
+        "size": size,
+        "total": total,
+        "total_pages": math.ceil(total / size) if total else 0,
+        "events": event_list,
+    }
 
 
 async def create_event(

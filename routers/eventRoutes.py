@@ -1,6 +1,8 @@
 import uuid
+from datetime import datetime
+from typing import Literal
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.db import get_db
@@ -24,16 +26,32 @@ async def events(
     return await get_events(db=db)
 
 
-@router.post("/create-event")
-async def create_event(
-    event: CreateEvent,
+@router.get("/events")
+async def events(
+    page: int = Query(default=1, ge=1),
+    size: int = Query(default=10, ge=1, le=100),
+    category_id: uuid.UUID | None = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    min_price: float | None = Query(default=None, ge=0),
+    max_price: float | None = Query(default=None, ge=0),
+    search: str | None = Query(default=None, max_length=100),
+    sort_by: Literal["date", "price"] = "date",
+    order: Literal["asc", "desc"] = "asc",
     db: AsyncSession = Depends(get_db),
-    authorization: str = Header(),
 ):
-    return await create_event_service(
-        event=event,
-        authorization=authorization,
+    return await get_events(
         db=db,
+        page=page,
+        size=size,
+        category_id=category_id,
+        start_date=start_date,
+        end_date=end_date,
+        min_price=min_price,
+        max_price=max_price,
+        search=search,
+        sort_by=sort_by,
+        order=order,
     )
 
 
