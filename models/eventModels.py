@@ -11,7 +11,7 @@ from schemas.eventSchema import Status
 class Event(Base):
     __tablename__ = "event"
 
-    event_id: Mapped[uuid: UUID] = mapped_column(
+    event_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4
@@ -52,13 +52,13 @@ class Event(Base):
         nullable=False
     )
 
-    category_id: Mapped[uuid: UUID] = mapped_column(
+    category_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("category.category_id"),
         nullable=False
     )
 
-    organizer_id: Mapped[uuid: UUID] = mapped_column(
+    organizer_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=False),
         ForeignKey("users.user_id"),
         nullable=False

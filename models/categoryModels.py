@@ -12,7 +12,7 @@ from schemas.categorySchema import Categories
 class Category(Base):
     __tablename__ = "category"
 
-    category_id: Mapped[uuid:UUID] = mapped_column(
+    category_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4

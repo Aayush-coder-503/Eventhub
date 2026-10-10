@@ -119,6 +119,7 @@ async def create_event(
     }
 
 
+
 @router.patch("/edit-event/{event_id}")
 async def edit_event(
     event_id: uuid.UUID,
@@ -126,74 +127,108 @@ async def edit_event(
     db: AsyncSession = Depends(get_db),
     authorization: str = Header(),
 ):
-    user = await get_authenticated_user(authorization, db)
+    async with db.begin():
 
-    if user.role != UserRole.ORGANIZER:
-        raise HTTPException(
-            status_code=403,
-            detail="Only organizers can edit events",
-        )
+        # 1. Authenticate the user
+        user = await get_authenticated_user(authorization, db)
 
-    result = await db.execute(
-        select(Event).where(Event.event_id == event_id)
-    )
-    existing_event = result.scalar_one_or_none()
-
-    if existing_event is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Event doesn't exist",
-        )
-
-    if str(existing_event.organizer_id) != str(user.user_id):
-        raise HTTPException(
-            status_code=403,
-            detail="You can only edit your own events",
-        )
-
-    update_data = edit_event.model_dump(exclude_unset=True)
-
-    if not update_data:
-        raise HTTPException(
-            status_code=400,
-            detail="No fields provided to update",
-        )
-
-    if "category_id" in update_data:
-        category_result = await db.execute(
-            select(Category).where(
-                Category.category_id == update_data["category_id"]
+        if user.role != UserRole.ORGANIZER:
+            raise HTTPException(
+                status_code=403,
+                detail="Only organizers can edit events",
             )
-        )
-        category = category_result.scalar_one_or_none()
 
-        if category is None:
+        # 2. Lock the event row
+        result = await db.execute(
+            select(Event)
+            .where(Event.event_id == event_id)
+            .with_for_update()
+        )
+        existing_event = result.scalar_one_or_none()
+
+        if existing_event is None:
             raise HTTPException(
                 status_code=404,
-                detail="Category doesn't exist",
+                detail="Event doesn't exist",
             )
 
-    for field, value in update_data.items():
-        setattr(existing_event, field, value)
+        # 3. Verify event ownership
+        if str(existing_event.organizer_id) != str(user.user_id):
+            raise HTTPException(
+                status_code=403,
+                detail="You can only edit your own events",
+            )
 
-    await db.commit()
-    await db.refresh(existing_event)
+        # 4. Get only fields the client provided
+        update_data = edit_event.model_dump(exclude_unset=True)
 
-    return {
-        "message": "Event updated successfully",
-        "event": {
-            "event_id": str(existing_event.event_id),
-            "title": existing_event.title,
-            "description": existing_event.description,
-            "venue": existing_event.venue,
-            "start_time": existing_event.start_time,
-            "end_time": existing_event.end_time,
-            "capacity": existing_event.capacity,
-            "price": existing_event.price,
-            "status": existing_event.status,
-            "category_id": str(existing_event.category_id),
-        },
-    }
+        if not update_data:
+            raise HTTPException(
+                status_code=400,
+                detail="No fields provided to update",
+            )
+
+        # 5. Validate the requested capacity against confirmed bookings
+        if "capacity" in update_data:
+            booking_result = await db.execute(
+                select(
+                    func.coalesce(func.sum(Booking.seats), 0)
+                ).where(
+                    Booking.event_id == event_id,
+                    Booking.status == BookingStatus.CONFIRMED,
+                )
+            )
+
+            booked_seats = booking_result.scalar_one()
+            requested_capacity = update_data["capacity"]
+
+            if requested_capacity < booked_seats:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"Capacity cannot be lower than "
+                        f"{booked_seats} confirmed seats already booked"
+                    ),
+                )
+
+        # 6. Validate category if it is being changed
+        if "category_id" in update_data:
+            category_result = await db.execute(
+                select(Category).where(
+                    Category.category_id == update_data["category_id"]
+                )
+            )
+            category = category_result.scalar_one_or_none()
+
+            if category is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Category doesn't exist",
+                )
+
+        # 7. Apply the updates
+        for field, value in update_data.items():
+            setattr(existing_event, field, value)
+
+        # Build the response before leaving the transaction.
+        # The transaction commits automatically on successful exit.
+        response = {
+            "message": "Event updated successfully",
+            "event": {
+                "event_id": str(existing_event.event_id),
+                "title": existing_event.title,
+                "description": existing_event.description,
+                "venue": existing_event.venue,
+                "start_time": existing_event.start_time,
+                "end_time": existing_event.end_time,
+                "capacity": existing_event.capacity,
+                "price": existing_event.price,
+                "status": existing_event.status,
+                "category_id": str(existing_event.category_id),
+            },
+        }
+
+    return response
 
 
 @router.delete("/delete-event/{event_id}")

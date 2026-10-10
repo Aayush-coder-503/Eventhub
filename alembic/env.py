@@ -6,9 +6,10 @@ from sqlalchemy import pool
 from alembic import context
 
 from db.db import Base
-from models.usersModels import User
+from models.userModels import User
 from models.categoryModels import Category
 from models.eventModels import Event
+from models.bookingModels import Booking
 
 import os
 from dotenv import load_dotenv

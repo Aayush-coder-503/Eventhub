@@ -25,8 +25,3 @@ async def get_db():
     async with SessionLocal() as session:
         yield session
 
-
-#testing connection
-# with engine.connect() as connection:
-#     result = connection.execute(text("SELECT 1"))
-#     print(result.scalar())
