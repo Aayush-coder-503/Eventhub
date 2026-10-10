@@ -16,7 +16,7 @@ class CreateEvent(BaseModel):
     start_time: datetime
     end_time: datetime
     capacity: int = Field(gt=0)
-    price: float
+    price: float = Field(gt=0)
     status: Status
     category_id: uuid.UUID
 
