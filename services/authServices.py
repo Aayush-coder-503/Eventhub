@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.userModels import User
-from schemas.authSchema import RegisterUsers, LoginUsers
+from schemas.authSchema import RegisterUsers, LoginUsers, UserRole
 from core.security.security import (
     hash_password,
     create_access_token,
@@ -44,7 +44,7 @@ async def register_user(
     access_token = create_access_token(new_user.user_id)
     refresh_token = create_refresh_token(new_user.user_id)
 
-    new_user.hashed_refresh_token = hash_refresh_token(
+    new_user.hashedRefreshToken = hash_refresh_token(
         refresh_token
     )
 

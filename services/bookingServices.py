@@ -14,8 +14,7 @@ from schemas.authSchema import UserRole
 from schemas.eventSchema import Status
 from schemas.bookingSchema import Book, BookingStatus
 
-from services.profileServices import get_user_profile
-
+from core.security.dependencies import get_authenticated_user
 
 async def book_seat(
     event_id: uuid.UUID,

@@ -23,7 +23,7 @@ def hash_password(password: str) -> str:
 
 def create_access_token(user_id: str) -> str:
     payload = {
-        "sub": user_id,
+        "sub": str(user_id),
         "type": "access",
         "exp": datetime.now(timezone.utc) + timedelta(minutes=120)
     }
@@ -56,7 +56,7 @@ def verify_access_token(token: str) -> dict:
        
 def create_refresh_token(user_id: str) -> str:
     payload = {
-        "sub": user_id,
+        "sub": str(user_id),
         "type": "refresh",
         "exp": datetime.now(timezone.utc) + timedelta(days=7)
     }

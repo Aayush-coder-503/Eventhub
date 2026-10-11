@@ -55,6 +55,19 @@ async def events(
     )
 
 
+@router.post("/create-event", status_code=201)
+async def create_event(
+    event: CreateEvent,
+    db: AsyncSession = Depends(get_db),
+    authorization: str = Header(),
+):
+    return await create_event_service(
+        event=event,
+        authorization=authorization,
+        db=db,
+    )
+
+
 @router.patch("/edit-event/{event_id}")
 async def edit_event(
     event_id: uuid.UUID,

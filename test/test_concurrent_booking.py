@@ -1,92 +1,85 @@
 import asyncio
+import os
+
 import httpx
-
-BASE_URL = "http://127.0.0.1:8000"
-
-EVENT_ID = "00842a4a-697c-48b2-bf95-d793ef58f032"
-
-#Aayush
-TOKEN_A = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzODgwYmUxMi04YmEwLTQ4YzktODZiNi02MGJmMDExZmEwNzQiLCJ0eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzkxNjUwMjI5fQ.qp7jprjXlGt1jr2_n1srV3nf3Hw9SPOqTMZTWmDVTNE"
-
-#Harvansh
-TOKEN_B = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5NTk4MWUzNy01OWI2LTRiNDYtYTJhMi01Y2NkMzg3OTU1ZTUiLCJ0eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzkxNjUwMzA4fQ.8S2AfJKHb_oUamayQhRIUC8-xy6eWwz81y1176SQHGs"
+import pytest
 
 
-async def book_seats(client, token, request_name, start_event):
-    await start_event.wait()
+BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:8000")
+API_PREFIX = "/api/v1"
 
-    try:
-        response = await client.post(
-            f"{BASE_URL}/book-seat/{EVENT_ID}",
-            headers={"Authorization": f"Bearer {token}"},
+EVENT_ID = os.environ["EVENT_ID"]
+TOKEN_A = os.environ["TOKEN_A"]
+TOKEN_B = os.environ["TOKEN_B"]
+
+
+@pytest.mark.asyncio
+async def test_two_users_cannot_book_same_remaining_seats():
+
+    start_event = asyncio.Event()
+
+    async def book_seats(client, token):
+        await start_event.wait()
+
+        return await client.post(
+            f"{BASE_URL}{API_PREFIX}/book-seat/{EVENT_ID}",
+            headers={
+                "Authorization": f"Bearer {token}",
+            },
             json={"seats": 2},
         )
 
-        return {
-            "request": request_name,
-            "status_code": response.status_code,
-            "response": response.text,
-        }
-
-    except httpx.TimeoutException as exc:
-        return {
-            "request": request_name,
-            "status_code": None,
-            "response": f"Request timed out: {exc}",
-        }
-
-    except httpx.RequestError as exc:
-        return {
-            "request": request_name,
-            "status_code": None,
-            "response": f"Request failed: {exc}",
-        }
-
-async def main():
-    start_event = asyncio.Event()
-
     async with httpx.AsyncClient(timeout=60.0) as client:
-        # Prepare both requests before releasing either one.
         task_a = asyncio.create_task(
-            book_seats(client, TOKEN_A, "Attendee A", start_event)
+            book_seats(client, TOKEN_A)
         )
-
         task_b = asyncio.create_task(
-            book_seats(client, TOKEN_B, "Attendee B", start_event)
+            book_seats(client, TOKEN_B)
         )
 
-        # Release both requests to run concurrently.
+        # Release both requests to compete for the same seats.
         start_event.set()
 
-        results = await asyncio.gather(task_a, task_b)
-
-    for result in results:
-        print(f"\n{result['request']}")
-        print(f"HTTP status: {result['status_code']}")
-        print(f"Response: {result['response']}")
-
-    successful = sum(
-        result["status_code"] in (200, 201)
-        for result in results
-    )
-
-    conflicts = sum(
-        result["status_code"] == 409
-        for result in results
-    )
-
-    print("\n--- TEST SUMMARY ---")
-    print(f"Successful bookings: {successful}")
-    print(f"Conflict responses: {conflicts}")
-
-    if successful == 1 and conflicts == 1:
-        print("PASS: One booking succeeded and the other was rejected.")
-    else:
-        print(
-            "CHECK: Results differ from the expected outcome. "
-            "Verify the test data and inspect the responses."
+        response_a, response_b = await asyncio.gather(
+            task_a,
+            task_b,
         )
 
+    responses = {
+        "Attendee A": response_a,
+        "Attendee B": response_b,
+    }
 
-if __name__ == "__main__":
-    asyncio.run(main())
+    for name, response in responses.items():
+        print(f"\n{name}")
+        print(f"Status: {response.status_code}")
+        print(f"Response: {response.text}")
+
+    status_codes = [
+        response.status_code
+        for response in responses.values()
+    ]
+
+    # Fail with a useful message if the route or resource is missing.
+    assert 404 not in status_codes, (
+        "Received 404 Not Found. Verify the endpoint path, "
+        f"event ID, and database. Responses: "
+        f"{[(r.status_code, r.text) for r in responses.values()]}"
+    )
+
+    successful = sum(
+        status in (200, 201)
+        for status in status_codes
+    )
+
+    conflicts = status_codes.count(409)
+
+    assert successful == 1, (
+        f"Expected 1 successful booking, got {successful}. "
+        f"Status codes: {status_codes}"
+    )
+
+    assert conflicts == 1, (
+        f"Expected 1 HTTP 409 Conflict, got {conflicts}. "
+        f"Status codes: {status_codes}"
+    )
