@@ -8,6 +8,8 @@ from services.categoryServices import create_category as create_category_service
 
 from core.security.dependencies import get_current_user
 
+from models.userModels import User
+
 router = APIRouter()
 
 

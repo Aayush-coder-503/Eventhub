@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 
+
 from db.db import engine
 from routers import (
     authRoutes,

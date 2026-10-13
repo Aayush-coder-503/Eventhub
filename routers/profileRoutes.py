@@ -7,6 +7,8 @@ from services.profileServices import get_user_profile
 
 from core.security.dependencies import get_current_user
 
+from models.userModels import User
+
 
 router = APIRouter()
 

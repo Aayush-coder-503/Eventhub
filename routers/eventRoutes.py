@@ -9,6 +9,8 @@ from db.db import get_db
 from schemas.eventSchema import CreateEvent
 from schemas.editeventSchema import EditEvent
 
+from models.userModels import User
+
 from services.eventServices import (
     get_events,
     create_event as create_event_service,

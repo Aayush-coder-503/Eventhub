@@ -14,6 +14,8 @@ from services.bookingServices import (
 
 from core.security.dependencies import get_current_user
 
+from models.userModels import User
+
 
 router = APIRouter()
 
