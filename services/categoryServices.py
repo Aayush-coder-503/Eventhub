@@ -14,37 +14,9 @@ from core.security.security import verify_access_token
 
 async def create_category(
     category: Categories,
-    authorization: str,
+    user:User,
     db: AsyncSession,
 ):
-    try:
-        scheme, token = authorization.split(" ", 1)
-    except ValueError:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid authorization header",
-        )
-
-    if scheme.lower() != "bearer":
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid authentication scheme",
-        )
-
-    verified_token = verify_access_token(token=token)
-    user_id = verified_token["sub"]
-
-    result = await db.execute(
-        select(User).where(User.user_id == user_id)
-    )
-    user = result.scalar_one_or_none()
-
-    if user is None:
-        raise HTTPException(
-            status_code=404,
-            detail="User doesn't exist",
-        )
-
     if user.role != UserRole.ADMIN:
         raise HTTPException(
             status_code=403,

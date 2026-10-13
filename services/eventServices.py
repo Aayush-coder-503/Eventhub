@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from models.userModels import User
 from models.eventModels import Event
 from models.categoryModels import Category
 from models.bookingModels import Booking
@@ -15,7 +16,6 @@ from schemas.eventSchema import CreateEvent, Status
 from schemas.editeventSchema import EditEvent
 from schemas.bookingSchema import BookingStatus
 
-from core.security.dependencies import get_authenticated_user
 
 import math
 import uuid
@@ -146,10 +146,9 @@ async def get_events(
 
 async def create_event(
     event: CreateEvent,
-    authorization: str,
+    user: User,
     db: AsyncSession,
 ):
-    user = await get_authenticated_user(authorization, db)
 
     if user.role != UserRole.ORGANIZER:
         raise HTTPException(
@@ -205,12 +204,11 @@ async def create_event(
 
 async def edit_event(
     event_id: uuid.UUID,
+    user: User,
     edit_event: EditEvent,
-    authorization: str,
     db: AsyncSession,
 ):
     async with db.begin():
-        user = await get_authenticated_user(authorization, db)
 
         if user.role != UserRole.ORGANIZER:
             raise HTTPException(
@@ -303,11 +301,10 @@ async def edit_event(
 
 async def delete_event(
     event_id: uuid.UUID,
-    authorization: str,
+    user: User,
     db: AsyncSession,
 ):
     async with db.begin():
-        user = await get_authenticated_user(authorization, db)
 
         if user.role != UserRole.ORGANIZER:
             raise HTTPException(

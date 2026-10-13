@@ -6,6 +6,8 @@ from db.db import get_db
 from schemas.categorySchema import Categories
 from services.categoryServices import create_category as create_category_service
 
+from core.security.dependencies import get_current_user
+
 router = APIRouter()
 
 
@@ -13,10 +15,11 @@ router = APIRouter()
 async def create_category(
     category: Categories,
     db: AsyncSession = Depends(get_db),
-    authorization: str = Header(),
+    user: User = Depends(get_current_user),
+
 ):
     return await create_category_service(
         category=category,
-        authorization=authorization,
+        user=user,
         db=db,
     )

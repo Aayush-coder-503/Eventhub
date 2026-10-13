@@ -16,6 +16,8 @@ from services.eventServices import (
     delete_event as delete_event_service,
 )
 
+from core.security.dependencies import get_current_user
+
 router = APIRouter()
 
 
@@ -58,12 +60,12 @@ async def events(
 @router.post("/create-event", status_code=201)
 async def create_event(
     event: CreateEvent,
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-    authorization: str = Header(),
 ):
     return await create_event_service(
         event=event,
-        authorization=authorization,
+        user=user,
         db=db,
     )
 
@@ -72,13 +74,13 @@ async def create_event(
 async def edit_event(
     event_id: uuid.UUID,
     edit_event: EditEvent,
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-    authorization: str = Header(),
 ):
     return await edit_event_service(
         event_id=event_id,
         edit_event=edit_event,
-        authorization=authorization,
+        user=user,
         db=db,
     )
 
@@ -87,10 +89,10 @@ async def edit_event(
 async def delete_event(
     event_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    authorization: str = Header(),
+    user: User = Depends(get_current_user)
 ):
     return await delete_event_service(
         event_id=event_id,
-        authorization=authorization,
+        user=user,
         db=db,
     )

@@ -25,7 +25,7 @@ def create_access_token(user_id: str) -> str:
     payload = {
         "sub": str(user_id),
         "type": "access",
-        "exp": datetime.now(timezone.utc) + timedelta(minutes=120)
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=15)
     }
 
     return jwt.encode(

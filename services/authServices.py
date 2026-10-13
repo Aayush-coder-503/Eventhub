@@ -1,8 +1,8 @@
-
 import uuid
 import bcrypt
+import hmac
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,11 +13,13 @@ from core.security.security import (
     create_access_token,
     create_refresh_token,
     hash_refresh_token,
+    verify_refresh_token
 )
 
 
 async def register_user(
     user: RegisterUsers,
+    response: Response,
     db: AsyncSession,
 ):
     result = await db.execute(
@@ -44,6 +46,26 @@ async def register_user(
     access_token = create_access_token(new_user.user_id)
     refresh_token = create_refresh_token(new_user.user_id)
 
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path="/",
+        max_age=15 * 60,
+    )
+
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path="/",
+        max_age=7 * 24 * 60 * 60,
+    )
+
     new_user.hashedRefreshToken = hash_refresh_token(
         refresh_token
     )
@@ -56,8 +78,6 @@ async def register_user(
         "user": {
             "name": new_user.name,
             "email": new_user.email,
-            "accessToken": access_token,
-            "refreshToken": refresh_token,
             "role": new_user.role.value,
         }
     }
@@ -65,6 +85,7 @@ async def register_user(
 
 async def login_user(
     login: LoginUsers,
+    response: Response,
     db: AsyncSession,
 ):
     result = await db.execute(
@@ -96,7 +117,28 @@ async def login_user(
         str(user_exist.user_id)
     )
 
-    user_exist.hashed_refresh_token = hash_refresh_token(
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path="/",
+        max_age=15 * 60,
+    )
+
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path="/",
+        max_age=7 * 24 * 60 * 60,
+    )
+
+
+    user_exist.hashedRefreshToken = hash_refresh_token(
         refresh_token
     )
 
@@ -105,7 +147,62 @@ async def login_user(
     return {
         "name": user_exist.name,
         "role": user_exist.role.value,
-        "accessToken": access_token,
-        "refreshToken": refresh_token,
-        "message": "Logged in successfully",
+    }
+
+
+
+async def refresh_tokens_service(
+    refresh_token: str,
+    db: AsyncSession,
+):
+    try:
+        payload = verify_refresh_token(refresh_token)
+    except ValueError:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired refresh token",
+        )
+
+    try:
+        user_id = uuid.UUID(payload["sub"])
+    except (ValueError, TypeError, KeyError):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid refresh token payload",
+        )
+
+    result = await db.execute(
+        select(User)
+        .where(User.user_id == user_id)
+        .with_for_update()
+    )
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        raise HTTPException(
+            status_code=401,
+            detail="User not found",
+        )
+
+    incoming_hash = hash_refresh_token(refresh_token)
+
+    if not user.hashedRefreshToken or not hmac.compare_digest(
+        user.hashedRefreshToken,
+        incoming_hash,
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Refresh token is invalid or has already been used",
+        )
+
+    new_access_token = create_access_token(str(user.user_id))
+    new_refresh_token = create_refresh_token(str(user.user_id))
+
+    user.hashedRefreshToken = hash_refresh_token(new_refresh_token)
+
+    await db.commit()
+
+    return {
+        "access_token": new_access_token,
+        "refresh_token": new_refresh_token,
     }

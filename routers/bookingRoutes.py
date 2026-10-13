@@ -12,6 +12,9 @@ from services.bookingServices import (
     get_booked_seats as get_booked_seats_service,
 )
 
+from core.security.dependencies import get_current_user
+
+
 router = APIRouter()
 
 
@@ -19,13 +22,13 @@ router = APIRouter()
 async def book_seat(
     event_id: uuid.UUID,
     book: Book,
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-    authorization: str = Header(),
 ):
     return await book_seat_service(
         event_id=event_id,
         book=book,
-        authorization=authorization,
+        user=user,
         db=db,
     )
 
@@ -34,11 +37,11 @@ async def book_seat(
 async def cancel_booking(
     booking_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    authorization: str = Header(),
+    user: User = Depends(get_current_user),
 ):
     return await cancel_booking_service(
         booking_id=booking_id,
-        authorization=authorization,
+        user=user,
         db=db,
     )
 
@@ -46,11 +49,11 @@ async def cancel_booking(
 @router.get("/booked-seats/{event_id}")
 async def get_booked_seats(
     event_id: uuid.UUID,
-    authorization: str = Header(),
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     return await get_booked_seats_service(
         event_id=event_id,
-        authorization=authorization,
+        user=user,
         db=db,
     )

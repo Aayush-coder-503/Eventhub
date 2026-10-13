@@ -5,15 +5,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.db import get_db
 from services.profileServices import get_user_profile
 
+from core.security.dependencies import get_current_user
+
+
 router = APIRouter()
 
 
 @router.get("/profile")
 async def profile(
-    authorization: str = Header(),
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     return await get_user_profile(
-        authorization=authorization,
+        user=user,
         db=db,
     )

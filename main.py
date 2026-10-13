@@ -21,13 +21,9 @@ async def lifespan(app: FastAPI):
     async with engine.connect() as connection:
         await connection.run_sync(lambda conn: None)
 
-    print("EventHub API started successfully")
-
     yield
 
     await engine.dispose()
-    print("EventHub API shut down successfully")
-
 
 app = FastAPI(
     title="EventHub API",
@@ -38,9 +34,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-    ],
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

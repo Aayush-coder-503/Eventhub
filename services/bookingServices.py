@@ -19,15 +19,11 @@ from core.security.dependencies import get_authenticated_user
 async def book_seat(
     event_id: uuid.UUID,
     book: Book,
-    authorization: str,
+    user: User,
     db: AsyncSession,
 ):
     try:
-        async with db.begin():
-            user = await get_authenticated_user(
-                authorization=authorization,
-                db=db,
-            )
+        async with db.begin_nested():
 
             if user.role != UserRole.ATTENDEE:
                 raise HTTPException(
@@ -126,15 +122,10 @@ async def book_seat(
 
 async def cancel_booking(
     booking_id: uuid.UUID,
-    authorization: str,
+    user:User,
     db: AsyncSession,
 ):
-    async with db.begin():
-        user = await get_authenticated_user(
-            authorization=authorization,
-            db=db,
-        )
-
+    async with db.begin_nested():
         result = await db.execute(
             select(Booking)
             .where(Booking.booking_id == booking_id)
@@ -147,8 +138,11 @@ async def cancel_booking(
                 status_code=404,
                 detail="Booking doesn't exist",
             )
+        
+        print("Booking user_id", booking.user_id)
+        print("User Id", user.user_id)
 
-        if booking.user_id != user.user_id:
+        if booking.user_id != str(user.user_id):
             raise HTTPException(
                 status_code=403,
                 detail="You can only cancel your own bookings",
@@ -162,6 +156,8 @@ async def cancel_booking(
 
         booking.status = BookingStatus.CANCELLED
 
+        await db.commit()
+
         response = {
             "message": "Booking cancelled successfully",
             "booking_id": str(booking.booking_id),
@@ -174,13 +170,9 @@ async def cancel_booking(
 
 async def get_booked_seats(
     event_id: uuid.UUID,
-    authorization: str,
+    user:User,
     db: AsyncSession,
 ):
-    user = await get_authenticated_user(
-        authorization=authorization,
-        db=db,
-    )
 
     if user.role not in [UserRole.ADMIN, UserRole.ORGANIZER]:
         raise HTTPException(
@@ -199,9 +191,10 @@ async def get_booked_seats(
             detail="Event doesn't exist",
         )
 
+
     if (
         user.role == UserRole.ORGANIZER
-        and event.organizer_id != user.user_id
+        and event.organizer_id != str(user.user_id)
     ):
         raise HTTPException(
             status_code=403,

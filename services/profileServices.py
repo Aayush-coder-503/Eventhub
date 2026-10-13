@@ -11,15 +11,9 @@ from core.security.dependencies import get_authenticated_user
 
 
 async def get_user_profile(
-    authorization: str,
+    user:User,
     db: AsyncSession,
 ):
-    # Authenticate the user
-    user = await get_authenticated_user(
-        authorization=authorization,
-        db=db,
-    )
-
     # Common profile data for every role
     profile_data = {
         "user_id": str(user.user_id),
