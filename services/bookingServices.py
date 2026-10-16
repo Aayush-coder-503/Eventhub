@@ -14,7 +14,6 @@ from schemas.authSchema import UserRole
 from schemas.eventSchema import Status
 from schemas.bookingSchema import Book, BookingStatus
 
-from core.security.dependencies import get_authenticated_user
 
 async def book_seat(
     event_id: uuid.UUID,
@@ -101,7 +100,7 @@ async def book_seat(
             )
 
             db.add(new_booking)
-            await db.flush()
+            await db.commit()
 
             response = {
                 "message": "Booking created successfully",
